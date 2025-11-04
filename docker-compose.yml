@@ -1,0 +1,172 @@
+services:
+  bookings-microservice:
+    image: bookings-microservice:latest
+    build:
+      context: .
+      dockerfile: BookingService.API/Dockerfile
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - MONGODB_HOST=mongodb-container
+        - MONGODB_PORT=27017
+        - MONGODB_DATABASE=BookingsDatabase
+        - UsersMicroserviceName=apigateway
+        - UsersMicroservicePort=8080
+        - HotelsMicroserviceName=apigateway
+        - HotelsMicroservicePort=8080
+        - REDIS_HOST=redis
+        - REDIS_PORT=6379
+        - RABBITMQ_HOSTNAME=rabbitmq
+        - RABBITMQ_PORT=5672
+        - RABBITMQ_USERNAME=user
+        - RABBITMQ_PASSWORD=password
+        - RabbitMQ_Hotels_Exchange=hotel.exchange
+
+    ports:
+        - 7000:8080
+    networks:
+      - bookings-mongodb-network
+      - hotelreservation-network
+    depends_on:
+      - mongodb-container
+      - identity-microservice
+      - hotel-microservice
+
+
+  mongodb-container:
+    image: mongo:latest
+    ports:
+        - "27017:27017"
+    volumes:
+        - ../HotelReservation/mongo-init:/docker-entrypoint-initdb.d
+    networks:
+        - bookings-mongodb-network
+
+  
+  identity-microservice:
+    image: identity-microservice:latest
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ASPNETCORE_HTTP_PORTS=8080
+        - POSTGRES_HOST=postgres-container
+        - POSTGRES_PORT=5432
+        - POSTGRES_DATABASE=HotelReservationUsers
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=admin
+    ports:
+        - 5000:9090
+    networks:
+      - identity-postgres-network
+      - hotelreservation-network
+    depends_on:
+      - postgres-container  
+
+
+
+  postgres-container:
+    image: postgres:latest
+    environment:
+        - POSTGRES_DB=HotelReservationUsers
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=admin
+    ports:
+        - "5433:5432"
+    volumes:
+        - ../HotelReservation/postgres-init:/docker-entrypoint-initdb.d
+    networks:
+        - identity-postgres-network  
+
+
+
+  hotel-microservice:
+    image: hotel-microservice:latest
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ASPNETCORE_HTTP_PORTS=8080
+        - MYSQL_HOST=mysql-container
+        - MYSQL_PORT=3306
+        - MYSQL_DATABASE=hotelreservationhoteldatabase
+        - MYSQL_USER=root
+        - MYSQL_PASSWORD=admin
+        - RABBITMQ_HOSTNAME=rabbitmq
+        - RABBITMQ_PORT=5672
+        - RABBITMQ_USERNAME=user
+        - RABBITMQ_PASSWORD=password
+        - RabbitMQ_Hotels_Exchange=hotel.exchange
+
+    ports:
+        - 6000:8080
+    networks:
+      - hotels-mysql-network
+      - hotelreservation-network
+    depends_on:
+      - mysql-container
+
+
+  mysql-container:
+    image: mysql:latest
+    environment:
+        - MYSQL_ROOT_PASSWORD=admin
+    ports:
+        - 3307:3306 
+    volumes:
+        - ../HotelReservation/mysql-init:/docker-entrypoint-initdb.d
+    networks:
+        - hotels-mysql-network
+
+
+
+  redis:
+    image: redis:latest
+    ports:
+        - 6379:6379 
+    volumes:
+        - ../HotelReservation/redis-cache:/data
+    networks:
+        - hotelreservation-network
+
+
+
+  rabbitmq:
+    image: rabbitmq:4.2.0-management
+    ports:
+        - 5672:5672 
+        - 15672:15672
+    environment:
+        - RABBITMQ_DEFAULT_USER=user
+        - RABBITMQ_DEFAULT_PASS=password
+    networks:
+        - hotelreservation-network
+
+  
+  apigateway:
+    image: apigateway:latest
+    build:
+      context: .
+      dockerfile: APIGateway/Dockerfile
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - IDENTITY_MICROSERVICE_HOST=identity-microservice
+        - IDENTITY_MICROSERVICE_PORT=9090
+        - HOTEL_MICROSERVICE_HOST=hotel-microservice
+        - HOTEL_MICROSERVICE_PORT=8080
+        - BOOKINGS_MICROSERVICE_HOST=bookings-microservice
+        - BOOKINGS_MICROSERVICE_PORT=8080
+    ports:
+        - 4000:8080
+    networks:
+      - hotelreservation-network
+    depends_on:
+      - identity-microservice
+      - hotel-microservice
+      - bookings-microservice
+
+
+networks:
+    identity-postgres-network:
+        driver: bridge
+    hotels-mysql-network:
+        driver: bridge
+    bookings-mongodb-network:
+        driver: bridge
+    hotelreservation-network:
+        driver: bridge

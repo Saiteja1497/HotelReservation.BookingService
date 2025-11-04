@@ -1,0 +1,186 @@
+{
+  "Routes": [
+    {
+      "DownstreamPathTemplate": "/api/bookings",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamPathTemplate": "/gateway/bookings/",
+      "UpstreamHttpMethod": [ "GET", "POST", "Options" ],
+      "UpstreamScheme": "http",
+      "FileCacheOptions": { "TtlSeconds": 30, "Region": "bookings" }
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/bookings/search/bookingid/{bookingID}/",
+      "DownstreamPathTemplate": "/api/bookings/search/bookingid/{bookingID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/bookings/search/roomid/{roomID}/",
+      "DownstreamPathTemplate": "/api/bookings/search/roomid/{roomID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/bookings/search/bookingDate/{bookingDate}/",
+      "DownstreamPathTemplate": "/api/bookings/search/bookingDate/{bookingDate}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/bookings/search/userID/{userID}/",
+      "DownstreamPathTemplate": "/api/bookings/search/userid/{userID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/bookings/{bookingID}/",
+      "DownstreamPathTemplate": "/api/bookings/{bookingID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "bookings-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Put", "Options", "Delete" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/hotels/",
+      "DownstreamPathTemplate": "/api/hotels",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "hotel-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get", "Options", "Post", "Put" ],
+      "UpstreamScheme": "http",
+      "QoSOptions": {
+        "ExceptionsAllowedBeforeBreaking": 3,
+        "DurationOfBreak": 8000,
+        "TimeoutValue": 5000
+      },
+      "RetryOptions": {
+        "RetryCount": 3,
+        "RetryOnServerError": true
+      },
+      "RateLimitOptions": {
+        "Limit": 300,
+        "Period": "1m",
+        "EnableRateLimiting": true,
+        "HttpStatusCode": 429,
+        "PeriodTimespan": 30,
+        "ClientWhitelist": [
+          "Client1",
+          "Client2"
+
+        ],
+        "ClientIdHeader": "Client-Id"
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/hotels/{hotelID}/",
+      "DownstreamPathTemplate": "/api/hotels/{hotelID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "hotel-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Delete", "Options" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/hotels/search/hotel-id/{hotelID}/",
+      "DownstreamPathTemplate": "/api/hotels/search/hotel-id/{hotelID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "hotel-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/hotels/search/{searchString}/",
+      "DownstreamPathTemplate": "/api/hotels/search/{searchString}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "hotel-microservice",
+          "Port": 8080
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/users/Auth/register/",
+      "DownstreamPathTemplate": "/api/Auth/register",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identity-microservice",
+          "Port": 9090
+        }
+      ],
+      "UpstreamHttpMethod": [ "Post", "Options" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/users/Auth/login/",
+      "DownstreamPathTemplate": "/api/Auth/login",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identity-microservice",
+          "Port": 9090
+        }
+      ],
+      "UpstreamHttpMethod": [ "Post", "Options" ],
+      "UpstreamScheme": "http"
+    },
+    {
+      "UpstreamPathTemplate": "/gateway/users/{userID}/",
+      "DownstreamPathTemplate": "/api/users/{userID}",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "identity-microservice",
+          "Port": 9090
+        }
+      ],
+      "UpstreamHttpMethod": [ "Get" ],
+      "UpstreamScheme": "http"
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:4000"
+  }
+}
