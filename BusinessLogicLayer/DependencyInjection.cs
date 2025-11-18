@@ -26,6 +26,10 @@ namespace BusinessLogicLayer
 
             services.AddTransient<IRabbitMQHotelDeleteConsumer, RabbitMQHotelDeleteConsumer>();
             services.AddHostedService<RabbitMQHotelDeleteHostedService>();
+            services.AddTransient<IRabbitMQPaymentProcessedConsumer, RabbitMQPaymentProcessedConsumer>();
+            services.AddHostedService<RabbitMQPaymentProcessedHostedService>();
+
+            services.AddScoped<IRabbitMQPublisher, RabbitMQPublisher>();
 
             return services;
         }

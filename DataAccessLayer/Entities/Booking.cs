@@ -31,7 +31,7 @@ namespace DataAccessLayer.Entities
         [BsonRepresentation(BsonType.Double)]
         public decimal TotalBill{ get; set; }
         [BsonRepresentation(BsonType.String)]
-        public string Status { get; set; } = "Confirmed";
+        public string Status { get; set; }
         [BsonRepresentation(BsonType.String)]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

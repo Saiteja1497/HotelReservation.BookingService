@@ -13,6 +13,8 @@ services:
         - UsersMicroservicePort=8080
         - HotelsMicroserviceName=apigateway
         - HotelsMicroservicePort=8080
+        - PaymentsMicroserviceName=apigateway
+        - PaymentsMicroservicePort=8080
         - REDIS_HOST=redis
         - REDIS_PORT=6379
         - RABBITMQ_HOSTNAME=rabbitmq
@@ -20,6 +22,8 @@ services:
         - RABBITMQ_USERNAME=user
         - RABBITMQ_PASSWORD=password
         - RabbitMQ_Hotels_Exchange=hotel.exchange
+        - RabbitMQ_Payments_Exchange=payment.exchange
+
 
     ports:
         - 7000:8080
@@ -30,6 +34,7 @@ services:
       - mongodb-container
       - identity-microservice
       - hotel-microservice
+      - payment-microservice
 
 
   mongodb-container:
@@ -49,13 +54,38 @@ services:
         - ASPNETCORE_HTTP_PORTS=8080
         - POSTGRES_HOST=postgres-container
         - POSTGRES_PORT=5432
-        - POSTGRES_DATABASE=HotelReservationUsers
+        - POSTGRES_DATABASE=hotelreservationusers
         - POSTGRES_USER=postgres
         - POSTGRES_PASSWORD=admin
     ports:
         - 5000:9090
     networks:
-      - identity-postgres-network
+      - identity-payment-postgres-network
+      - hotelreservation-network
+    depends_on:
+      - postgres-container  
+
+
+
+  payment-microservice:
+    image: payment-microservice:latest
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ASPNETCORE_HTTP_PORTS=8080
+        - POSTGRES_HOST=postgres-container
+        - POSTGRES_PORT=5432
+        - POSTGRES_PAYMENT_DATABASE=hotelreservationpayments
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=admin
+        - RABBITMQ_HOSTNAME=rabbitmq
+        - RABBITMQ_PORT=5672
+        - RABBITMQ_USERNAME=user
+        - RABBITMQ_PASSWORD=password
+        - RabbitMQ_Payments_Exchange=payment.exchange
+    ports:
+        - 2000:8080
+    networks:
+      - identity-payment-postgres-network
       - hotelreservation-network
     depends_on:
       - postgres-container  
@@ -65,7 +95,7 @@ services:
   postgres-container:
     image: postgres:latest
     environment:
-        - POSTGRES_DB=HotelReservationUsers
+        - POSTGRES_DB=hotelreservationusers
         - POSTGRES_USER=postgres
         - POSTGRES_PASSWORD=admin
     ports:
@@ -73,7 +103,7 @@ services:
     volumes:
         - ../HotelReservation/postgres-init:/docker-entrypoint-initdb.d
     networks:
-        - identity-postgres-network  
+        - identity-payment-postgres-network  
 
 
 
@@ -162,7 +192,7 @@ services:
 
 
 networks:
-    identity-postgres-network:
+    identity-payment-postgres-network:
         driver: bridge
     hotels-mysql-network:
         driver: bridge

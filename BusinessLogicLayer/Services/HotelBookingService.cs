@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Azure;
 using BusinessLogicLayer.HttpClients;
+using BusinessLogicLayer.RabbitMQ;
 using BusinessLogicLayer.ServiceContracts;
 using BusinessLogicLayer.Validators;
 using DataAccessLayer.DTO;
@@ -24,10 +25,11 @@ namespace BusinessLogicLayer.Services
         private readonly IMapper _mapper;
         private readonly UsersMicroserviceClient _usersMicroserviceClient;
         private readonly HotelsMicroserviceClient _hotelsMicroserviceClient;
+        private readonly IRabbitMQPublisher _rabbitPublisher;
         public HotelBookingService(IBookingRepository bookingRepository,ILogger<HotelBookingService> logger,
             IValidator<BookingAddRequest> bookingAddRequestValidator, IValidator<BookingUpdateRequest> bookingUpdateRequestValidator,
             IValidator<RoomBookingAddRequest> roomBookingAddRequestValidator, IValidator<RoomBookingUpdateRequest> roomBookingUpdateRequestValidator,
-            IMapper mapper, UsersMicroserviceClient usersMicroserviceClient, HotelsMicroserviceClient hotelsMicroserviceClient)
+            IMapper mapper, UsersMicroserviceClient usersMicroserviceClient, HotelsMicroserviceClient hotelsMicroserviceClient, IRabbitMQPublisher rabbitPublisher)
         {
             _bookingRepository = bookingRepository;
             _logger = logger;
@@ -38,6 +40,7 @@ namespace BusinessLogicLayer.Services
             _mapper = mapper;
             _usersMicroserviceClient = usersMicroserviceClient;
             _hotelsMicroserviceClient = hotelsMicroserviceClient;
+            _rabbitPublisher = rabbitPublisher;
         }
         public async Task<BookingResponse?> AddBooking(BookingAddRequest bookingAddRequest)
         {
@@ -95,6 +98,7 @@ namespace BusinessLogicLayer.Services
                 roomBooking.TotalPrice = roomBooking.RoomPrice * roomBooking.NoOfRoomsBooked;
             }
             bookingEntity.TotalBill = bookingEntity.Rooms.Sum(temp => temp.TotalPrice);
+            bookingEntity.Status = "Pending";
             Booking? addedBooking = await _bookingRepository.AddBooking(bookingEntity);
             if(addedBooking == null)
             {
@@ -106,9 +110,31 @@ namespace BusinessLogicLayer.Services
             BookingResponse bookingResponse = _mapper.Map<BookingResponse>(addedBooking);
             if(bookingResponse != null)
             {
-                if(user!=null)
+                if (user != null)
                 {
-                    _mapper.Map<UserDTO,BookingResponse>(user, bookingResponse);
+                    _mapper.Map(user, bookingResponse);
+                }
+                try
+                {
+                    var paymentEvent = new PaymentRequestEvent
+                    {
+                        BookingId = bookingResponse.BookingId,
+                        UserId = bookingResponse.UserId,
+                        Amount = bookingResponse.TotalBill,
+                        Currency = "USD",
+                        PaymentMethod = "Internal"
+                    };
+                    // IRabbitPublisher injected into this service (add to ctor)
+                    await _rabbitPublisher.Initialize();
+                    await _rabbitPublisher.Publish<PaymentRequestEvent>(paymentEvent);
+                    _logger.LogInformation("Published payment.requested for Booking {BookingId}", bookingResponse.BookingId);
+                    // set booking Status to "Pending" immediately if you want:
+                    // bookingResponse.Status = "Pending";
+                    // optionally update DB status via repository.UpdateBooking
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish payment.requested for Booking {BookingId}", bookingResponse.BookingId);
                 }
 
             }
@@ -121,8 +147,9 @@ namespace BusinessLogicLayer.Services
             {
                 throw new ArgumentNullException(nameof(bookingId));
             }
-            Booking? existingBooking = _bookingRepository.GetBookingByCondition(Builders<Booking>.Filter.Eq(b => b.BookingId, bookingId)).Result;
-            if(existingBooking == null)
+           Booking? existingBooking = _bookingRepository.GetBookingByCondition(Builders<Booking>.Filter.Eq(b => b.BookingId, bookingId)).Result;
+           //Booking? existingBooking = await _bookingRepository.GetBookingByCondition(bookingId);
+            if (existingBooking == null)
             {
                 _logger.LogWarning("Booking with ID {BookingID} not found for deletion.", bookingId);
                 return false;
@@ -145,12 +172,11 @@ namespace BusinessLogicLayer.Services
                 {
                     continue;
                 }
-               
-                    UserDTO? user = await _usersMicroserviceClient.GetUser(response.UserId);
+                UserDTO? user = await _usersMicroserviceClient.GetUser(response.UserId);
                 if (user != null)
                 {
-                    _mapper.Map<BookingResponse>(user);
-
+                    //_mapper.Map<UserDTO, BookingResponse>(user);
+                    _mapper.Map(user, response);
                 }
             }
             return bookingResponses.ToList();
@@ -159,8 +185,8 @@ namespace BusinessLogicLayer.Services
 
         public async Task<BookingResponse?> GetBookingByCondition(FilterDefinition<Booking> filter)
         {
-           Booking? booking = await _bookingRepository.GetBookingByCondition(filter);
-            if(booking == null)
+            Booking? booking = await _bookingRepository.GetBookingByCondition(filter);
+            if (booking == null)
             {
                 _logger.LogWarning("No booking found matching the given condition.");
                 return null;
@@ -172,12 +198,33 @@ namespace BusinessLogicLayer.Services
                 UserDTO? user = await _usersMicroserviceClient.GetUser(bookingResponse.UserId);
                 if (user != null)
                 {
-                    _mapper.Map<BookingResponse>(user);
-
+                    _mapper.Map(user, bookingResponse);
                 }
             }
             return bookingResponse;
         }
+
+        public async Task<BookingResponse?> GetBookingByBookingID(Guid bookingID)
+        {
+            Booking? booking = await _bookingRepository.GetBookingByBookingID(bookingID);
+            if (booking == null)
+            {
+                _logger.LogWarning("No booking found matching the given condition.");
+                return null;
+            }
+            BookingResponse bookingResponse = _mapper.Map<BookingResponse>(booking);
+            if (bookingResponse != null)
+            {
+
+                UserDTO? user = await _usersMicroserviceClient.GetUser(bookingResponse.UserId);
+                if (user != null)
+                {
+                    _mapper.Map(user, bookingResponse);
+                }
+            }
+            return bookingResponse;
+        }
+
 
         public async Task<List<BookingResponse?>> GetBookingsByCondition(FilterDefinition<Booking> filter)
         {
@@ -198,7 +245,35 @@ namespace BusinessLogicLayer.Services
                 UserDTO? user = await _usersMicroserviceClient.GetUser(response.UserId);
                 if (user != null)
                 {
-                    _mapper.Map<BookingResponse>(user);
+                    _mapper.Map(user, response);
+
+                }
+            }
+            return bookingResponses.ToList();
+        }
+
+
+
+        public async Task<List<BookingResponse?>> GetBookingsByUserID(Guid userID)
+        {
+            IEnumerable<Booking?> bookings = await _bookingRepository.GetBookingsByUserID(userID);
+            if (bookings == null)
+            {
+                _logger.LogWarning("No booking found matching the given condition.");
+                return null;
+            }
+            IEnumerable<BookingResponse?> bookingResponses = _mapper.Map<IEnumerable<BookingResponse>>(bookings);
+            foreach (BookingResponse? response in bookingResponses)
+            {
+                if (response == null)
+                {
+                    continue;
+                }
+
+                UserDTO? user = await _usersMicroserviceClient.GetUser(response.UserId);
+                if (user != null)
+                {
+                    _mapper.Map(user, response);
 
                 }
             }
@@ -259,6 +334,7 @@ namespace BusinessLogicLayer.Services
                 roomBooking.TotalPrice = roomBooking.RoomPrice * roomBooking.NoOfRoomsBooked;
             }
             bookingEntity.TotalBill = bookingEntity.Rooms.Sum(temp => temp.TotalPrice);
+            bookingEntity.Status = bookingUpdateRequest.Status;
             Booking? updatedBooking = await _bookingRepository.UpdateBooking(bookingEntity);
             if (updatedBooking == null)
             {
@@ -270,7 +346,7 @@ namespace BusinessLogicLayer.Services
             {
                 if (user != null)
                 {
-                    _mapper.Map<UserDTO, BookingResponse>(user, bookingResponse);
+                    _mapper.Map(user, bookingResponse);
                 }
 
             }

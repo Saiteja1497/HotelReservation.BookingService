@@ -24,14 +24,14 @@ namespace BookingService.API.Controllers
             return await _hotelBookingService.GetAllBookings();
         }
 
-        [HttpGet("/search/bookingid/{bookingID}")]
+        [HttpGet("search/bookingid/{bookingID}")]
         public async Task<BookingResponse?> GetBookingByBookingID(Guid bookingID)
         {
-            BookingResponse? bookingResponse = await _hotelBookingService.GetBookingByCondition(Builders<Booking>.Filter.Eq(b => b.BookingId, bookingID));
+            BookingResponse? bookingResponse = await _hotelBookingService.GetBookingByBookingID(bookingID);
             return bookingResponse;
         }
 
-        [HttpGet("/search/roomid/{roomID}")]
+        [HttpGet("search/roomid/{roomID}")]
         public async Task<IEnumerable<BookingResponse?>> GetBookingsByRoomID(Guid roomID)
         {
             FilterDefinition<Booking> filter = Builders<Booking>.Filter.ElemMatch(temp => temp.Rooms, Builders<RoomBooking>.Filter.Eq(r => r.RoomId, roomID));
@@ -40,7 +40,7 @@ namespace BookingService.API.Controllers
         }
 
 
-        [HttpGet("/search/bookingDate/{bookingDate}")]
+        [HttpGet("search/bookingDate/{bookingDate}")]
         public async Task<IEnumerable<BookingResponse?>> GetBookingsByBookingDate(DateTime bookingDate)
         {
             FilterDefinition<Booking> filter = Builders<Booking>.Filter.Eq(temp => temp.CheckInDate.ToString("yyyy-MM-dd"), bookingDate.ToString("yyyy-MM-dd"));
@@ -49,11 +49,13 @@ namespace BookingService.API.Controllers
         }
 
 
-        [HttpGet("/search/userID/{userID}")]
+        [HttpGet("search/userID/{userID}")]
         public async Task<IEnumerable<BookingResponse?>> GetBookingsByUserID(Guid userID)
         {
-            FilterDefinition<Booking> filter = Builders<Booking>.Filter.Eq(temp => temp.UserId,userID);
-            List<BookingResponse?> bookingResponses = await _hotelBookingService.GetBookingsByCondition(filter);
+            // FilterDefinition<Booking> filter = Builders<Booking>.Filter.Eq(temp => temp.UserId,userID);
+            // List<BookingResponse?> bookingResponses = await _hotelBookingService.GetBookingsByCondition(filter);
+            List<BookingResponse?> bookingResponses = await _hotelBookingService.GetBookingsByUserID(userID);
+
             return bookingResponses;
         }
 

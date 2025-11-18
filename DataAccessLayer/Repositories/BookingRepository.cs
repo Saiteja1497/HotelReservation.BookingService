@@ -52,7 +52,7 @@ namespace DataAccessLayer.Repositories
             return deleteResult.DeletedCount > 0;
         }
 
-        public async Task<IEnumerable<Booking>> GetAllBookings()
+        public async Task<IEnumerable<Booking?>> GetAllBookings()
         {
             IEnumerable<Booking> bookings = (await _bookings.FindAsync(Builders<Booking>.Filter.Empty)).ToList();
             _logger.LogInformation(JsonSerializer.Serialize(bookings, new JsonSerializerOptions { WriteIndented = true }));
@@ -61,12 +61,42 @@ namespace DataAccessLayer.Repositories
 
         public async Task<Booking?> GetBookingByCondition(FilterDefinition<Booking> filter)
         {
-            return (await _bookings.FindAsync(filter)).FirstOrDefault();
+            var response = (await _bookings.FindAsync(filter)).FirstOrDefault();
+            if (response == null)
+            { _logger.LogWarning("No booking found matching the provided condition."); }
+
+
+
+            return response;
+        }
+
+        public async Task<Booking?> GetBookingByBookingID(Guid bookingID)
+        {
+            
+
+            var response = (await _bookings.FindAsync(Builders<Booking>.Filter.Eq(b => b.BookingId, bookingID))).FirstOrDefault();
+            if (response == null)
+            {
+                _logger.LogWarning("Booking with ID {BookingID} not found.", bookingID);
+            }
+
+            return response;
         }
 
         public async Task<IEnumerable<Booking>> GetBookingsByCondition(FilterDefinition<Booking> filter)
         {
             return (await _bookings.FindAsync(filter)).ToList();
+        }
+
+        public async Task<IEnumerable<Booking?>> GetBookingsByUserID(Guid userID)
+        {
+            
+            var response = (await _bookings.FindAsync(Builders<Booking>.Filter.Eq(b => b.UserId, userID))).ToList();
+            if (response == null || response.Count == 0)
+            {
+                _logger.LogWarning("No bookings found for User ID {UserID}.", userID);
+            }
+            return response;
         }
 
         public async Task<Booking?> UpdateBooking(Booking booking)
